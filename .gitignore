@@ -1,0 +1,54 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+tsconfig.tsbuildinfo
+
+# Tauri
+src-tauri/target/
+
+# local env/secrets (examples are safe to commit)
+.env
+.env.*
+!.env.example
+!.env.*.example
+secrets/
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.cert
+*.crt
+*.der
+*.asc
+*.gpg
+*.kdbx
+*.age
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local overrides
+*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

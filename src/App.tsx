@@ -1,6 +1,5 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useFileLoader, formatSize } from "./useFileLoader";
-import { FORMAT_CHIPS } from "./fileTypes";
 import { useTheme } from "./theme";
 import { useStore } from "./store";
 import { PdfViewer } from "./viewers/PdfViewer";
@@ -28,8 +27,22 @@ export default function App() {
 
   const [dragOver, setDragOver] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [recentDropdownOpen, setRecentDropdownOpen] = useState(false);
+  const recentDropdownRef = useRef<HTMLDivElement>(null);
   const { theme, toggle } = useTheme();
   const { store, toggleSavedPath, createProject, renameProject, deleteProject, addTag, removeTag } = useStore();
+
+  // Close recent dropdown on outside click
+  useEffect(() => {
+    if (!recentDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (recentDropdownRef.current && !recentDropdownRef.current.contains(e.target as Node)) {
+        setRecentDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [recentDropdownOpen]);
 
   // Per-file edit overrides: Map<filename, editedContent>
   const editOverrides = useRef<Map<string, string>>(new Map());
@@ -160,22 +173,106 @@ export default function App() {
       <main className="content">
         {!file && !error && (
           <div className="start-screen">
+            {/* Hero */}
             <div className="start-hero">
               <h1 className="start-title">open-files</h1>
-              <p className="start-subtitle">Drop a file or press ⌘O</p>
+              <p className="start-subtitle">Your files. Beautiful. Native.</p>
+
+              {/* CTA buttons */}
+              <div className="start-actions" ref={recentDropdownRef}>
+                <button className="btn btn-primary" onClick={() => void openFile()} disabled={loading}>
+                  Open File
+                </button>
+                {recentFiles.length > 0 && (
+                  <>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => setRecentDropdownOpen((o) => !o)}
+                    >
+                      Open Recent ▾
+                    </button>
+                    {recentDropdownOpen && (
+                      <div className="recent-dropdown">
+                        <div className="recent-dropdown-header">
+                          <span>Recent</span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ fontSize: 10, padding: "2px 6px" }}
+                            onClick={() => { clearRecent(); setRecentDropdownOpen(false); }}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <div className="recent-list" style={{ padding: "6px 8px" }}>
+                          {recentFiles.slice(0, 5).map((r) => (
+                            <button
+                              key={r.path}
+                              type="button"
+                              className="recent-item"
+                              onClick={() => { void openFromPath(r.path); setRecentDropdownOpen(false); }}
+                              title={r.path}
+                            >
+                              <span className="recent-item-icon">
+                                {r.category === "pdf" ? "📄" : r.category === "markdown" ? "📝" : r.category === "epub" ? "📚" : r.category === "json" || r.category === "jsonl" ? "📋" : "📃"}
+                              </span>
+                              <span className="recent-item-info">
+                                <span className="recent-item-name">{r.name}</span>
+                                <span className="recent-item-path">{r.path.length > 48 ? "…" + r.path.slice(-45) : r.path}</span>
+                              </span>
+                              <span className="recent-item-time">
+                                {new Date(r.lastOpened).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        {recentFiles.length > 5 && (
+                          <div className="recent-dropdown-footer">
+                            <button
+                              type="button"
+                              className="recent-view-all"
+                              onClick={() => { setSidebarOpen(true); setRecentDropdownOpen(false); }}
+                            >
+                              View all {recentFiles.length} files →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Recent files */}
+            {/* Feature grid */}
+            <div className="feature-grid">
+              {[
+                { icon: "📄", name: "PDF", desc: "Multi-page with navigation" },
+                { icon: "📝", name: "Markdown", desc: "Live preview + edit mode" },
+                { icon: "📋", name: "JSON / JSONL", desc: "Collapsible tree viewer" },
+                { icon: "🔀", name: "Mermaid", desc: "Diagrams rendered live" },
+                { icon: "📚", name: "EPUB", desc: "Chapter navigation" },
+                { icon: "💻", name: "Code & Text", desc: "Mono, syntax-aware" },
+              ].map((f) => (
+                <div key={f.name} className="feature-card">
+                  <span className="feature-card-icon">{f.icon}</span>
+                  <span className="feature-card-name">{f.name}</span>
+                  <span className="feature-card-desc">{f.desc}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Inline recent list */}
             {recentFiles.length > 0 && (
               <div className="start-recent">
                 <div className="start-section-header">
                   <span>Recent</span>
-                  <button type="button" className="btn btn-ghost" style={{ fontSize: 11, padding: "2px 8px" }} onClick={clearRecent}>
+                  <button type="button" className="btn btn-ghost" style={{ fontSize: 10, padding: "2px 8px" }} onClick={clearRecent}>
                     Clear
                   </button>
                 </div>
                 <div className="recent-list">
-                  {recentFiles.slice(0, 8).map((r) => (
+                  {recentFiles.slice(0, 5).map((r) => (
                     <button
                       key={r.path}
                       type="button"
@@ -196,14 +293,24 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                {recentFiles.length > 5 && (
+                  <button
+                    type="button"
+                    className="recent-view-all"
+                    style={{ alignSelf: "flex-start", marginTop: 4 }}
+                    onClick={() => setSidebarOpen(true)}
+                  >
+                    View all →
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Format chips */}
-            <div className="start-formats">
-              {FORMAT_CHIPS.map((f) => (
-                <span key={f} className="format-chip">{f}</span>
-              ))}
+            {/* Stats bar */}
+            <div className="start-stats">
+              <span className="stat-chip">✦ 6 formats</span>
+              <span className="stat-chip">🗂 Projects &amp; Tags</span>
+              <span className="stat-chip">🔍 Search</span>
             </div>
           </div>
         )}

@@ -13,10 +13,14 @@
     "windows": [
       {
         "title": "open-files",
-        "width": 1000,
-        "height": 700,
+        "width": 1080,
+        "height": 740,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {

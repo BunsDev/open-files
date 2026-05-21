@@ -16,6 +16,8 @@ interface Props {
   onDeleteProject: (id: string) => void;
   onAddTag: (tag: { name: string; color: string }) => void;
   onRemoveTag: (name: string) => void;
+  onAddToProject: (projectId: string, path: string) => void;
+  onRemoveFromProject: (projectId: string, path: string) => void;
   currentFilePath?: string;
 }
 
@@ -46,6 +48,8 @@ export function Sidebar({
   onDeleteProject,
   onAddTag,
   onRemoveTag,
+  onAddToProject,
+  onRemoveFromProject,
   currentFilePath,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,6 +58,7 @@ export function Sidebar({
   const [renameValue, setRenameValue] = useState("");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["recent", "saved", "projects", "tags"]),
   );
@@ -207,7 +212,18 @@ export function Sidebar({
           {expandedSections.has("projects") && (
             <div className="sidebar-list">
               {filteredProjects.map((p) => (
-                <div key={p.id} className="sidebar-item sidebar-project-item">
+                <div
+                  key={p.id}
+                  className={`sidebar-item sidebar-project-item${dragOverProjectId === p.id ? " project-drop-target" : ""}`}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverProjectId(p.id); }}
+                  onDragLeave={() => setDragOverProjectId(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverProjectId(null);
+                    const path = e.dataTransfer.getData("text/plain");
+                    if (path) onAddToProject(p.id, path);
+                  }}
+                >
                   {renamingId === p.id ? (
                     <input
                       className="sidebar-rename-input"
@@ -237,6 +253,9 @@ export function Sidebar({
                         }}
                       >
                         {p.name}
+                        {p.paths.length > 0 && (
+                          <span className="project-file-count">{p.paths.length}</span>
+                        )}
                       </span>
                       <button
                         type="button"
@@ -247,6 +266,31 @@ export function Sidebar({
                         ✕
                       </button>
                     </>
+                  )}
+                  {/* Files in project */}
+                  {!renamingId && p.paths.length > 0 && (
+                    <div className="project-files-list">
+                      {p.paths.map((fp) => (
+                        <div key={fp} className="project-file-item">
+                          <button
+                            type="button"
+                            className="project-file-name"
+                            onClick={() => onOpenPath(fp)}
+                            title={fp}
+                          >
+                            {fp.split(/[\/\\]/).pop()}
+                          </button>
+                          <button
+                            type="button"
+                            className="sidebar-item-remove"
+                            onClick={() => onRemoveFromProject(p.id, fp)}
+                            title="Remove from project"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))}

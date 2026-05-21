@@ -30,7 +30,26 @@ export default function App() {
   const [recentDropdownOpen, setRecentDropdownOpen] = useState(false);
   const recentDropdownRef = useRef<HTMLDivElement>(null);
   const { theme, toggle } = useTheme();
-  const { store, toggleSavedPath, createProject, renameProject, deleteProject, addTag, removeTag } = useStore();
+  const { store, toggleSavedPath, createProject, renameProject, deleteProject, addTag, removeTag, addToProject, removeFromProject } = useStore();
+
+  const [view, setView] = useState<"home" | "file">("home");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Switch to file view when a file opens; allow going back home
+  useEffect(() => {
+    if (file) setView("file");
+  }, [file]);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   // Close recent dropdown on outside click
   useEffect(() => {
@@ -95,6 +114,8 @@ export default function App() {
         onDeleteProject={deleteProject}
         onAddTag={addTag}
         onRemoveTag={removeTag}
+        onAddToProject={addToProject}
+        onRemoveFromProject={removeFromProject}
         currentFilePath={file?.path}
       />
 
@@ -110,7 +131,15 @@ export default function App() {
           </button>
           <span className="logo">open-files</span>
           {file && (
-            <span className="header-filename" title={file.path ?? file.name}>
+            <span
+              className="header-filename"
+              title={file.path ?? file.name}
+              draggable={!!file.path}
+              onDragStart={(e) => {
+                if (file.path) e.dataTransfer.setData("text/plain", file.path);
+              }}
+            >
+              <span className="drag-grip" title="Drag into a project">⠿</span>
               {file.name}
               <button
                 type="button"
@@ -124,6 +153,61 @@ export default function App() {
           )}
         </div>
         <div className="header-right">
+          {/* ⋯ menu */}
+          <div className="header-menu-wrap" ref={menuRef}>
+            <button
+              className="btn btn-ghost btn-icon"
+              onClick={() => setMenuOpen((o) => !o)}
+              title="Menu"
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="header-menu">
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => { setView("home"); setMenuOpen(false); }}
+                >
+                  🏠 Home
+                </button>
+                {file && (
+                  <button
+                    type="button"
+                    className="header-menu-item"
+                    onClick={() => { setView("file"); setMenuOpen(false); }}
+                  >
+                    📄 {file.name}
+                  </button>
+                )}
+                <div className="header-menu-divider" />
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => { void openFile(); setMenuOpen(false); }}
+                >
+                  📂 Open File…
+                </button>
+                {file?.path && (
+                  <button
+                    type="button"
+                    className="header-menu-item"
+                    onClick={() => { toggleSavedPath(file.path!); setMenuOpen(false); }}
+                  >
+                    {isBookmarked ? "★ Remove Bookmark" : "☆ Bookmark"}
+                  </button>
+                )}
+                <div className="header-menu-divider" />
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => { toggle(); setMenuOpen(false); }}
+                >
+                  {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+                </button>
+              </div>
+            )}
+          </div>
           {file && (
             <button
               className="btn btn-ghost btn-icon"
@@ -171,7 +255,7 @@ export default function App() {
       )}
 
       <main className="content">
-        {!file && !error && (
+        {(view === "home" || !file) && !error && (
           <div className="start-screen">
             {/* Hero */}
             <div className="start-hero">
@@ -315,31 +399,31 @@ export default function App() {
           </div>
         )}
 
-        {file && file.category === "pdf" && file.binary && (
+        {file && view === "file" && file.category === "pdf" && file.binary && (
           <PdfViewer data={file.binary} />
         )}
-        {file && file.category === "markdown" && currentContent !== undefined && (
+        {file && view === "file" && file.category === "markdown" && currentContent !== undefined && (
           <MarkdownViewer
             content={currentContent}
             onContentChange={handleContentChange}
           />
         )}
-        {file && file.category === "mermaid" && file.text !== undefined && (
+        {file && view === "file" && file.category === "mermaid" && file.text !== undefined && (
           <MermaidViewer content={file.text} />
         )}
-        {file && file.category === "json" && file.text !== undefined && (
+        {file && view === "file" && file.category === "json" && file.text !== undefined && (
           <JsonViewer content={file.text} />
         )}
-        {file && file.category === "jsonl" && file.text !== undefined && (
+        {file && view === "file" && file.category === "jsonl" && file.text !== undefined && (
           <JsonlViewer content={file.text} />
         )}
-        {file && file.category === "text" && file.text !== undefined && (
+        {file && view === "file" && file.category === "text" && file.text !== undefined && (
           <TextViewer content={file.text} />
         )}
-        {file && file.category === "epub" && file.binary && (
+        {file && view === "file" && file.category === "epub" && file.binary && (
           <EpubViewer data={file.binary} />
         )}
-        {file && file.category === "unsupported" && (
+        {file && view === "file" && file.category === "unsupported" && (
           <div className="unsupported-state">
             <p className="empty-title">Unsupported file format</p>
           </div>

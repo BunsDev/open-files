@@ -122,6 +122,34 @@ export function useStore() {
     [updateStore],
   );
 
+  const addToProject = useCallback(
+    (projectId: string, path: string) => {
+      updateStore((prev) => ({
+        ...prev,
+        projects: prev.projects.map((p) =>
+          p.id === projectId && !p.paths.includes(path)
+            ? { ...p, paths: [...p.paths, path] }
+            : p,
+        ),
+      }));
+    },
+    [updateStore],
+  );
+
+  const removeFromProject = useCallback(
+    (projectId: string, path: string) => {
+      updateStore((prev) => ({
+        ...prev,
+        projects: prev.projects.map((p) =>
+          p.id === projectId
+            ? { ...p, paths: p.paths.filter((fp) => fp !== path) }
+            : p,
+        ),
+      }));
+    },
+    [updateStore],
+  );
+
   return {
     store,
     toggleSavedPath,
@@ -130,5 +158,7 @@ export function useStore() {
     deleteProject,
     addTag,
     removeTag,
+    addToProject,
+    removeFromProject,
   };
 }

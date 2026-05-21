@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useFileLoader } from "./useFileLoader";
 import { FORMAT_LABEL } from "./fileTypes";
+import { useTheme } from "./theme";
 import { PdfViewer } from "./viewers/PdfViewer";
 import { MarkdownViewer } from "./viewers/MarkdownViewer";
 import { MermaidViewer } from "./viewers/MermaidViewer";
@@ -17,6 +18,7 @@ function formatSize(bytes: number): string {
 export default function App() {
   const { file, loading, error, openFile, handleDrop, closeFile } = useFileLoader();
   const [dragOver, setDragOver] = useState(false);
+  const { theme, toggle } = useTheme();
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -44,6 +46,9 @@ export default function App() {
           <span className="subtitle">{FORMAT_LABEL}</span>
         </div>
         <div className="header-right">
+          <button className="btn btn-ghost btn-icon" onClick={toggle} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           {file && (
             <button className="btn btn-ghost" onClick={closeFile}>
               Close
@@ -75,6 +80,7 @@ export default function App() {
       <main className="content">
         {!file && !error && (
           <div className="empty-state">
+          <div className="empty-card">
             <div className="empty-icon">
               <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
                 <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -87,6 +93,7 @@ export default function App() {
               Click "Open File" or drag and drop a file here
             </p>
             <p className="empty-formats">{FORMAT_LABEL}</p>
+          </div>
           </div>
         )}
 

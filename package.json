@@ -21,6 +21,7 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "setup:hooks": "git config core.hooksPath .githooks",
     "secrets:scan": "node scripts/secret-scan.mjs",
+    "release:credentials:doctor": "node scripts/release-credentials-doctor.mjs",
     "release:mac:unsigned": "CI=true tauri build --bundles app,dmg --no-sign"
   },
   "dependencies": {

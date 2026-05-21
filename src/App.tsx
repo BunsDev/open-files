@@ -9,6 +9,7 @@ import { JsonViewer } from "./viewers/JsonViewer";
 import { JsonlViewer } from "./viewers/JsonlViewer";
 import { TextViewer } from "./viewers/TextViewer";
 import { EpubViewer } from "./viewers/EpubViewer";
+import { DirectoryViewer } from "./viewers/DirectoryViewer";
 import { Sidebar } from "./Sidebar";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
     loading,
     error,
     openFile,
+    openDirectory,
     openFromPath,
     handleDrop,
     closeFile,
@@ -40,6 +42,18 @@ export default function App() {
   useEffect(() => {
     if (file) setView("file");
   }, [file]);
+
+  // Keyboard shortcut ⌘\ to toggle sidebar
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault();
+        setSidebarOpen(o => !o);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Close menu on outside click
   useEffect(() => {
@@ -125,7 +139,7 @@ export default function App() {
           <button
             className="btn btn-ghost btn-icon sidebar-toggle"
             onClick={() => setSidebarOpen((o) => !o)}
-            title="Toggle sidebar"
+            title="Toggle sidebar (⌘\\)"
           >
             ☰
           </button>
@@ -187,6 +201,13 @@ export default function App() {
                   onClick={() => { void openFile(); setMenuOpen(false); }}
                 >
                   📂 Open File…
+                </button>
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => { void openDirectory(); setMenuOpen(false); }}
+                >
+                  📁 Open Folder…
                 </button>
                 {file?.path && (
                   <button
@@ -266,6 +287,9 @@ export default function App() {
               <div className="start-actions" ref={recentDropdownRef}>
                 <button className="btn btn-primary" onClick={() => void openFile()} disabled={loading}>
                   Open File
+                </button>
+                <button className="btn btn-ghost" onClick={() => void openDirectory()} disabled={loading}>
+                  Open Folder
                 </button>
                 {recentFiles.length > 0 && (
                   <>
@@ -422,6 +446,14 @@ export default function App() {
         )}
         {file && view === "file" && file.category === "epub" && file.binary && (
           <EpubViewer data={file.binary} />
+        )}
+        {file && view === "file" && file.category === "directory" && file.directoryEntries && file.path && (
+          <DirectoryViewer
+            name={file.name}
+            entries={file.directoryEntries}
+            rootPath={file.path}
+            onOpenFile={(path) => void openFromPath(path)}
+          />
         )}
         {file && view === "file" && file.category === "unsupported" && (
           <div className="unsupported-state">

@@ -1,6 +1,14 @@
 import { useState, useCallback } from "react";
 import { FileCategory, detectFileType } from "./fileTypes";
 
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  category: FileCategory;
+  children?: DirectoryEntry[]; // populated on expand
+}
+
 export interface LoadedFile {
   name: string;
   path?: string;
@@ -10,6 +18,8 @@ export interface LoadedFile {
   /** Raw binary for PDF / EPUB */
   binary?: ArrayBuffer;
   size: number;
+  /** Directory entries for category === "directory" */
+  directoryEntries?: DirectoryEntry[];
 }
 
 export interface RecentFile {
@@ -48,6 +58,40 @@ function pushRecent(recent: RecentFile[], entry: RecentFile): RecentFile[] {
 /** Check if we're running inside Tauri */
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+export async function openDirectoryWithTauri(): Promise<{ file: LoadedFile; path: string } | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const { readDir } = await import("@tauri-apps/plugin-fs");
+
+  const selected = await open({ directory: true, title: "Open a folder" });
+  if (!selected) return null;
+
+  const dirPath = typeof selected === "string" ? selected : (selected as unknown as { path: string }).path;
+  const name = dirPath.split(/[/\\]/).pop() ?? dirPath;
+
+  const rawEntries = await readDir(dirPath);
+  const entries: DirectoryEntry[] = (rawEntries as Array<{ name?: string; isDirectory?: boolean; isDir?: boolean; children?: unknown[] }>).map((e) => {
+    const eName = e.name ?? "";
+    const isDir = !!(e.isDirectory ?? e.isDir ?? (Array.isArray(e.children)));
+    const ePath = dirPath + "/" + eName;
+    return {
+      name: eName,
+      path: ePath,
+      isDir,
+      category: isDir ? ("directory" as FileCategory) : detectFileType(eName),
+    };
+  });
+
+  const file: LoadedFile = {
+    name,
+    path: dirPath,
+    category: "directory",
+    size: entries.length,
+    directoryEntries: entries,
+  };
+
+  return { file, path: dirPath };
 }
 
 async function openWithTauri(): Promise<{ file: LoadedFile; path: string } | null> {
@@ -162,10 +206,10 @@ export function useFileLoader() {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>(loadRecent);
   const [toast, setToast] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   const recordRecent = useCallback((loaded: LoadedFile, path: string) => {
     setRecentFiles((prev) => {
@@ -262,11 +306,32 @@ export function useFileLoader() {
     saveRecent([]);
   }, []);
 
+  const openDirectory = useCallback(async () => {
+    if (!isTauri()) {
+      showToast("Directory browsing requires the desktop app.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await openDirectoryWithTauri();
+      if (result) {
+        setFile(result.file);
+        recordRecent(result.file, result.path);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [recordRecent, showToast]);
+
   return {
     file,
     loading,
     error,
     openFile,
+    openDirectory,
     openFromPath,
     handleDrop,
     closeFile,

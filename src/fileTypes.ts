@@ -6,6 +6,7 @@ export type FileCategory =
   | "jsonl"
   | "text"
   | "epub"
+  | "directory"
   | "unsupported";
 
 const EXT_MAP: Record<string, FileCategory> = {

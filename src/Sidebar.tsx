@@ -88,10 +88,10 @@ export function Sidebar({
     ? store.projects.filter((p) => p.name.toLowerCase().includes(q))
     : store.projects;
 
-  if (!open) return null;
-
   return (
-    <div className="app-sidebar">
+    <>
+      <div className={`sidebar-scrim${open ? " open" : ""}`} onClick={onClose} />
+      <div className={`app-sidebar${open ? " open" : ""}`}>
       <div className="sidebar-header">
         <span className="sidebar-title">Files</span>
         <button type="button" className="btn btn-ghost btn-icon" onClick={onClose} title="Close sidebar">
@@ -392,6 +392,20 @@ export function Sidebar({
           )}
         </div>
       </div>
+      <div className="sidebar-collapse-btn-wrap">
+        <button
+          type="button"
+          className="sidebar-collapse-btn"
+          onClick={onClose}
+          title="Collapse sidebar"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>Collapse</span>
+        </button>
+      </div>
     </div>
+    </>
   );
 }

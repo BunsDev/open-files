@@ -3,6 +3,7 @@ export type FileCategory =
   | "markdown"
   | "mermaid"
   | "json"
+  | "jsonl"
   | "text"
   | "epub"
   | "unsupported";
@@ -28,6 +29,25 @@ const EXT_MAP: Record<string, FileCategory> = {
   ".xml": "text",
   ".env": "text",
   ".epub": "epub",
+  ".jsonl": "jsonl",
+  ".ndjson": "jsonl",
+  ".mdx": "markdown",
+  ".rst": "text",
+  ".diff": "text",
+  ".patch": "text",
+  ".sh": "text",
+  ".bash": "text",
+  ".zsh": "text",
+  ".fish": "text",
+  ".js": "text",
+  ".ts": "text",
+  ".tsx": "text",
+  ".jsx": "text",
+  ".py": "text",
+  ".rb": "text",
+  ".rs": "text",
+  ".go": "text",
+  ".swift": "text",
 };
 
 export function detectFileType(filename: string): FileCategory {
@@ -39,4 +59,6 @@ export function detectFileType(filename: string): FileCategory {
 
 export const SUPPORTED_EXTENSIONS = Object.keys(EXT_MAP);
 
-export const FORMAT_LABEL = "PDF, Markdown, JSON, Text, Mermaid, EPUB";
+export const FORMAT_LABEL = "PDF, Markdown, JSON, JSONL, Text, Mermaid, EPUB";
+
+export const FORMAT_CHIPS = ["PDF", "MD", "MDX", "JSON", "JSONL", "TXT", "EPUB", "MERMAID", "CSV", "TS", "PY", "SH", "DIFF"];

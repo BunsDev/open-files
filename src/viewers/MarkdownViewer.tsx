@@ -6,14 +6,17 @@ import "@create-markdown/preview/themes/system.css";
 
 interface Props {
   content: string;
+  onContentChange?: (newContent: string) => void;
   fallbackLabel?: string;
 }
 
-export function MarkdownViewer({ content, fallbackLabel = "Document" }: Props) {
+export function MarkdownViewer({ content, onContentChange, fallbackLabel = "Document" }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | undefined>();
+  const [mode, setMode] = useState<"preview" | "edit">("preview");
+  const [editValue, setEditValue] = useState(content);
   const sourceOutline = useMemo(() => buildMarkdownOutline(content), [content]);
   const outline = useMemo(
     () => sourceOutline.length > 0
@@ -21,6 +24,11 @@ export function MarkdownViewer({ content, fallbackLabel = "Document" }: Props) {
       : [{ id: "markdown-start", label: fallbackLabel, depth: 1 }],
     [fallbackLabel, sourceOutline],
   );
+
+  // Sync edit value when content changes externally
+  useEffect(() => {
+    if (mode === "preview") setEditValue(content);
+  }, [content, mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,22 +80,69 @@ export function MarkdownViewer({ content, fallbackLabel = "Document" }: Props) {
     }
   };
 
+  const switchToEdit = () => {
+    setEditValue(content);
+    setMode("edit");
+  };
+
+  const commitEdit = () => {
+    setMode("preview");
+    if (onContentChange && editValue !== content) {
+      onContentChange(editValue);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      commitEdit();
+    }
+  };
+
   return (
     <DocumentFrame outline={outline} activeId={activeId} onSelect={selectOutline} className="markdown-frame">
-      <div className="markdown-viewer document-scroll" ref={contentRef}>
-        {error ? (
-          <>
-            <div className="error-banner">
-              <p>Failed to render Markdown.</p>
-              <pre>{error}</pre>
-            </div>
-            <pre className="text-pre">{content}</pre>
-          </>
+      <div style={{ position: "relative", height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div className="markdown-mode-toggle">
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            style={{ fontSize: 12, padding: "2px 10px", height: 26, borderRadius: 6, width: "auto" }}
+            onClick={() => mode === "preview" ? switchToEdit() : commitEdit()}
+            title={mode === "preview" ? "Switch to edit mode" : "Switch to preview"}
+          >
+            {mode === "preview" ? "Edit" : "Preview"}
+          </button>
+        </div>
+        {mode === "edit" ? (
+          <textarea
+            className="markdown-editor"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={handleEditKeyDown}
+            autoFocus
+          />
         ) : (
-          <>
-            {markdownPluginCSS && <style>{markdownPluginCSS}</style>}
-            <div dangerouslySetInnerHTML={{ __html: html }} />
-          </>
+          <div
+            className="markdown-viewer document-scroll"
+            ref={contentRef}
+            onDoubleClick={switchToEdit}
+            title="Double-click to edit"
+          >
+            {error ? (
+              <>
+                <div className="error-banner">
+                  <p>Failed to render Markdown.</p>
+                  <pre>{error}</pre>
+                </div>
+                <pre className="text-pre">{content}</pre>
+              </>
+            ) : (
+              <>
+                {markdownPluginCSS && <style>{markdownPluginCSS}</style>}
+                <div dangerouslySetInnerHTML={{ __html: html }} />
+              </>
+            )}
+          </div>
         )}
       </div>
     </DocumentFrame>

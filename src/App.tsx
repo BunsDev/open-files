@@ -1,22 +1,50 @@
-import { useState, useCallback } from "react";
-import { useFileLoader } from "./useFileLoader";
-import { FORMAT_LABEL } from "./fileTypes";
+import { useState, useCallback, useRef } from "react";
+import { useFileLoader, formatSize } from "./useFileLoader";
+import { FORMAT_CHIPS } from "./fileTypes";
+import { useTheme } from "./theme";
+import { useStore } from "./store";
 import { PdfViewer } from "./viewers/PdfViewer";
 import { MarkdownViewer } from "./viewers/MarkdownViewer";
 import { MermaidViewer } from "./viewers/MermaidViewer";
 import { JsonViewer } from "./viewers/JsonViewer";
+import { JsonlViewer } from "./viewers/JsonlViewer";
 import { TextViewer } from "./viewers/TextViewer";
 import { EpubViewer } from "./viewers/EpubViewer";
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+import { Sidebar } from "./Sidebar";
 
 export default function App() {
-  const { file, loading, error, openFile, handleDrop, closeFile } = useFileLoader();
+  const {
+    file,
+    loading,
+    error,
+    openFile,
+    openFromPath,
+    handleDrop,
+    closeFile,
+    recentFiles,
+    clearRecent,
+    toast,
+  } = useFileLoader();
+
   const [dragOver, setDragOver] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggle } = useTheme();
+  const { store, toggleSavedPath, createProject, renameProject, deleteProject, addTag, removeTag } = useStore();
+
+  // Per-file edit overrides: Map<filename, editedContent>
+  const editOverrides = useRef<Map<string, string>>(new Map());
+  const [, forceRender] = useState(0);
+
+  const handleContentChange = useCallback((newContent: string) => {
+    if (file) {
+      editOverrides.current.set(file.name, newContent);
+      forceRender((n) => n + 1);
+    }
+  }, [file]);
+
+  const currentContent = file?.text !== undefined
+    ? (editOverrides.current.get(file.name) ?? file.text)
+    : undefined;
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -26,10 +54,12 @@ export default function App() {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       setDragOver(false);
-      handleDrop(e);
+      void handleDrop(e);
     },
     [handleDrop],
   );
+
+  const isBookmarked = file?.path ? store.savedPaths.includes(file.path) : false;
 
   return (
     <div
@@ -38,19 +68,68 @@ export default function App() {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
+      {/* Sidebar */}
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        recentFiles={recentFiles}
+        onOpenPath={(path) => void openFromPath(path)}
+        onClearRecent={clearRecent}
+        store={store}
+        onToggleSaved={toggleSavedPath}
+        onCreateProject={createProject}
+        onRenameProject={renameProject}
+        onDeleteProject={deleteProject}
+        onAddTag={addTag}
+        onRemoveTag={removeTag}
+        currentFilePath={file?.path}
+      />
+
       <header className="header">
         <div className="header-left">
-          <h1 className="logo">open-files</h1>
-          <span className="subtitle">{FORMAT_LABEL}</span>
+          {/* Sidebar toggle */}
+          <button
+            className="btn btn-ghost btn-icon sidebar-toggle"
+            onClick={() => setSidebarOpen((o) => !o)}
+            title="Toggle sidebar"
+          >
+            ☰
+          </button>
+          <span className="logo">open-files</span>
+          {file && (
+            <span className="header-filename" title={file.path ?? file.name}>
+              {file.name}
+              <button
+                type="button"
+                className="header-close-btn"
+                onClick={closeFile}
+                title="Close file"
+              >
+                ×
+              </button>
+            </span>
+          )}
         </div>
         <div className="header-right">
           {file && (
-            <button className="btn btn-ghost" onClick={closeFile}>
-              Close
+            <button
+              className="btn btn-ghost btn-icon"
+              onClick={() => file.path && toggleSavedPath(file.path)}
+              title={isBookmarked ? "Remove bookmark" : "Bookmark this file"}
+              disabled={!file.path}
+            >
+              {isBookmarked ? "★" : "☆"}
             </button>
           )}
-          <button className="btn btn-primary" onClick={openFile} disabled={loading}>
-            {loading ? "Opening..." : "Open File"}
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={toggle}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <button className="btn btn-ghost btn-icon" onClick={() => void openFile()} disabled={loading} title="Open file">
+            📂
           </button>
         </div>
       </header>
@@ -66,41 +145,86 @@ export default function App() {
       {error && (
         <div className="error-banner">
           <span>Error: {error}</span>
-          <button className="btn btn-ghost" onClick={() => openFile()}>
+          <button className="btn btn-ghost" onClick={() => void openFile()}>
             Try again
           </button>
         </div>
       )}
 
+      {toast && (
+        <div className="toast-banner">
+          {toast}
+        </div>
+      )}
+
       <main className="content">
         {!file && !error && (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-                <path d="M24 28h16M24 36h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M32 16v8m-4-4h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+          <div className="start-screen">
+            <div className="start-hero">
+              <h1 className="start-title">open-files</h1>
+              <p className="start-subtitle">Drop a file or press ⌘O</p>
             </div>
-            <p className="empty-title">Open a file to get started</p>
-            <p className="empty-hint">
-              Click "Open File" or drag and drop a file here
-            </p>
-            <p className="empty-formats">{FORMAT_LABEL}</p>
+
+            {/* Recent files */}
+            {recentFiles.length > 0 && (
+              <div className="start-recent">
+                <div className="start-section-header">
+                  <span>Recent</span>
+                  <button type="button" className="btn btn-ghost" style={{ fontSize: 11, padding: "2px 8px" }} onClick={clearRecent}>
+                    Clear
+                  </button>
+                </div>
+                <div className="recent-list">
+                  {recentFiles.slice(0, 8).map((r) => (
+                    <button
+                      key={r.path}
+                      type="button"
+                      className="recent-item"
+                      onClick={() => void openFromPath(r.path)}
+                      title={r.path}
+                    >
+                      <span className="recent-item-icon">
+                        {r.category === "pdf" ? "📄" : r.category === "markdown" ? "📝" : r.category === "epub" ? "📚" : r.category === "json" || r.category === "jsonl" ? "📋" : "📃"}
+                      </span>
+                      <span className="recent-item-info">
+                        <span className="recent-item-name">{r.name}</span>
+                        <span className="recent-item-path">{r.path.length > 60 ? "…" + r.path.slice(-57) : r.path}</span>
+                      </span>
+                      <span className="recent-item-time">
+                        {new Date(r.lastOpened).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Format chips */}
+            <div className="start-formats">
+              {FORMAT_CHIPS.map((f) => (
+                <span key={f} className="format-chip">{f}</span>
+              ))}
+            </div>
           </div>
         )}
 
         {file && file.category === "pdf" && file.binary && (
           <PdfViewer data={file.binary} />
         )}
-        {file && file.category === "markdown" && file.text !== undefined && (
-          <MarkdownViewer content={file.text} />
+        {file && file.category === "markdown" && currentContent !== undefined && (
+          <MarkdownViewer
+            content={currentContent}
+            onContentChange={handleContentChange}
+          />
         )}
         {file && file.category === "mermaid" && file.text !== undefined && (
           <MermaidViewer content={file.text} />
         )}
         {file && file.category === "json" && file.text !== undefined && (
           <JsonViewer content={file.text} />
+        )}
+        {file && file.category === "jsonl" && file.text !== undefined && (
+          <JsonlViewer content={file.text} />
         )}
         {file && file.category === "text" && file.text !== undefined && (
           <TextViewer content={file.text} />
@@ -111,9 +235,6 @@ export default function App() {
         {file && file.category === "unsupported" && (
           <div className="unsupported-state">
             <p className="empty-title">Unsupported file format</p>
-            <p className="empty-hint">
-              open-files supports: {FORMAT_LABEL}
-            </p>
           </div>
         )}
       </main>
